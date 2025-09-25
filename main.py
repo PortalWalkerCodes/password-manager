@@ -14,14 +14,15 @@ def save():
 
     with open("saved_email.txt", "r+") as saved_email:
         if email_str.lower() != username_entry.get().lower():
-            choice = messagebox.askokcancel(title="Update saved email?", detail="The email you typed does not match autofilled email. Would you like to update the autofilled email?")
+            choice = messagebox.askokcancel(title="Update saved email?", detail="Your typed email is different from the saved one. Do you want to update the saved email?")
 
             if choice:
                 saved_email.write(f"{username_entry.get().lower()}")
 
-
-
-
+    username_entry.delete(0, END)
+    username_entry.insert(email_str)
+    password_entry.delete(0, END)
+    website_entry.delete(0, END)
 
 # ---------------------------- UI SETUP ------------------------------- #
 
