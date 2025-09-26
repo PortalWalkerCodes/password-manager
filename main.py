@@ -1,6 +1,5 @@
 from tkinter import *
 from tkinter import messagebox
-import pandas
 
 # ---------------------------- PASSWORD GENERATOR ------------------------------- #
 
@@ -9,20 +8,28 @@ import pandas
 def save():
     global email_str
 
-    with open("passwords.txt", "a") as passwords:
-        passwords.write(f"{website_entry.get()} | {username_entry.get()} | {password_entry.get()}\n")
+    if len(website_entry.get()) != 0 and len(password_entry.get()) != 0 :
+        is_ok = messagebox.askokcancel(title=f"{website_entry.get()}", message=f"These are the details entered: \nEmail: {username_entry.get()}\nPassword: {password_entry.get()}\nIs it ok to save?")
 
-    with open("saved_email.txt", "r+") as saved_email:
-        if email_str.lower() != username_entry.get().lower():
-            choice = messagebox.askokcancel(title="Update saved email?", detail="Your typed email is different from the saved one. Do you want to update the saved email?")
+        if is_ok:
+            with open("passwords.txt", "a") as passwords:
+                passwords.write(f"{website_entry.get()} | {username_entry.get()} | {password_entry.get()}\n")
 
-            if choice:
-                saved_email.write(f"{username_entry.get().lower()}")
+            with open("saved_email.txt", "r+") as saved_email:
+                if email_str.lower() != username_entry.get().lower():
+                    choice = messagebox.askokcancel(title="Update saved email?",
+                                                    detail="Your typed email is different from the saved one. Do you want to update the saved email?")
 
-    username_entry.delete(0, END)
-    username_entry.insert(email_str)
-    password_entry.delete(0, END)
-    website_entry.delete(0, END)
+                    if choice:
+                        saved_email.write(f"{username_entry.get().lower()}")
+
+            username_entry.delete(0, END)
+            username_entry.insert(0, f"{email_str}")
+            password_entry.delete(0, END)
+            website_entry.delete(0, END)
+    else:
+        messagebox.showinfo(title="Oops", message="Please don't leave any fields empty!")
+
 
 # ---------------------------- UI SETUP ------------------------------- #
 
