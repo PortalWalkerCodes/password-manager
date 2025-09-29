@@ -1,8 +1,36 @@
+import tkinter.messagebox
+from json import JSONDecodeError
 from tkinter import *
 from tkinter import messagebox
 import random
 import pyperclip
+import json
 
+
+# ---------------------------- PASSWORD SEARCH ---------------------------------- #
+def password_search():
+    try:
+        with open("passwords.json", "r") as data_file:
+            data = json.load(data_file)
+    except FileNotFoundError:
+        tkinter.messagebox.showinfo(
+            title="Data file not found.",
+            message="Data file not found.\nIf this is your first time using this please save a password first"
+        )
+    else:
+        website = website_entry.get()
+        if website in data:
+            email = data[website]["email"]
+            password = data[website]["password"]
+            tkinter.messagebox.showinfo(
+                title=website,
+                message=f"Email: {email}\nPassword: {password}"
+            )
+        else:
+            tkinter.messagebox.showinfo(
+                title="Password not found",
+                message=f"The password for {website} does not exist."
+            )
 # ---------------------------- PASSWORD GENERATOR ------------------------------- #
 
 #Password Generator Project
@@ -35,25 +63,41 @@ def generate_password():
 def save():
     global email_str
 
+
     if len(website_entry.get()) != 0 and len(password_entry.get()) != 0 and len(username_entry.get()):
         is_ok = messagebox.askokcancel(title=f"{website_entry.get()}", message=f"These are the details entered: \nEmail: {username_entry.get()}\nPassword: {password_entry.get()}\nIs it ok to save?")
 
         if is_ok:
-            with open("passwords.txt", "a") as passwords:
-                passwords.write(f"{website_entry.get()} | {username_entry.get()} | {password_entry.get()}\n")
+            new_data = {website_entry.get():{"email":username_entry.get(), "password":password_entry.get()}}
 
-            with open("saved_email.txt", "r+") as saved_email:
-                if email_str.lower() != username_entry.get().lower():
-                    choice = messagebox.askokcancel(title="Update saved email?",
-                                                    detail="Your typed email is different from the saved one. Do you want to update the saved email?")
+            try:
+                 with open("passwords.json", "r") as passwords:
+                    try:
+                        data = json.load(passwords)
+                    except JSONDecodeError:
+                        data = {}
+                    data.update(new_data)
+            except FileNotFoundError:
+                with open("passwords.json", "w") as data:
+                    json.dump(new_data, data, indent=4)
+            else:
+                data.update(new_data)
 
-                    if choice:
-                        saved_email.write(f"{username_entry.get().lower()}")
+                with open("passwords.json", "w") as data_file:
+                    json.dump(data, data_file, indent=4)
+            finally:
+                with open("saved_email.txt", "r+") as saved_email:
+                    if email_str.lower() != username_entry.get().lower():
+                        choice = messagebox.askokcancel(title="Update saved email?",
+                                                        detail="Your typed email is different from the saved one. Do you want to update the saved email?")
 
-            username_entry.delete(0, END)
-            username_entry.insert(0, f"{email_str}")
-            password_entry.delete(0, END)
-            website_entry.delete(0, END)
+                        if choice:
+                            saved_email.write(f"{username_entry.get().lower()}")
+
+                username_entry.delete(0, END)
+                username_entry.insert(0, f"{email_str}")
+                password_entry.delete(0, END)
+                website_entry.delete(0, END)
     else:
         messagebox.showinfo(title="Oops", message="Please don't leave any fields empty!")
 
@@ -65,38 +109,37 @@ with open("saved_email.txt", "r") as email:
 
 window = Tk()
 window.title("Password Manager")
-
 window.config(padx=50, pady=50)
 
-logo = PhotoImage(file="logo.png")
-canvas = Canvas(width=200, height=200, highlightthickness=0)
-canvas.create_image(100, 100, image=logo)
-canvas.grid(column=1, row=0)
+canvas = Canvas(height=200, width=200)
+logo_img = PhotoImage(file="logo.png")
+canvas.create_image(100, 100, image=logo_img)
+canvas.grid(row=0, column=1)
 
-# Website
+#Labels
 website_label = Label(text="Website:")
-website_label.grid(column=0, row=1, sticky="e")
-website_entry = Entry(width=35)
-website_entry.grid(column=1, row=1, columnspan=2, sticky="w", pady=5)
-website_entry.focus()
-
-# Email/Username
-username_label = Label(text="Email/Username:")
-username_label.grid(column=0, row=2, sticky="e")
-username_entry = Entry(width=35)
-username_entry.insert(0, email_str)
-username_entry.grid(column=1, row=2, columnspan=2, sticky="w", pady=5)
-
-# Password
+website_label.grid(row=1, column=0)
+email_label = Label(text="Email/Username:")
+email_label.grid(row=2, column=0)
 password_label = Label(text="Password:")
-password_label.grid(column=0, row=3, sticky="e")
+password_label.grid(row=3, column=0)
+
+#Entries
+website_entry = Entry(width=21)
+website_entry.grid(row=1, column=1, columnspan=1, sticky="nsew")
+website_entry.focus()
+username_entry = Entry(width=35)
+username_entry.grid(row=2, column=1, columnspan=2, sticky="nsew")
+username_entry.insert(0, email_str)
 password_entry = Entry(width=21)
-password_entry.grid(column=1, row=3, sticky="w", pady=5)
+password_entry.grid(row=3, column=1, sticky="nsew")
 
+# Buttons
 generate_password_button = Button(text="Generate Password", command=generate_password)
-generate_password_button.grid(column=2, row=3, sticky="w", pady=5, padx=(5, 0))
-
+generate_password_button.grid(row=3, column=2, sticky="nsew")
+search_password_button = Button(text="Search", command=password_search)
+search_password_button.grid(row=1, column = 2, sticky="nsew")
 add_button = Button(text="Add", width=36, command=save)
-add_button.grid(row=4, column=1, columnspan=2, pady=10)
+add_button.grid(row=4, column=1, columnspan=2)
 
 window.mainloop()
