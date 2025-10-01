@@ -1,0 +1,144 @@
+name: Build and Release Python App
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install PyInstaller
+        run: pip install pyinstaller
+
+      - name: Build with PyInstaller
+        run: pyinstaller --onefile --windowed --name MyPass main.py
+
+      - name: Copy Windows exe to root (so artifact path is simple)
+        run: cp dist/MyPass.exe MyPass.exe
+
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MyPass-windows
+          path: MyPass.exe
+
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install PyInstaller
+        run: pip install pyinstaller
+
+      - name: Build with PyInstaller
+        run: pyinstaller --onefile --windowed --name MyPass main.py
+
+      - name: Create .app Bundle
+        run: |
+          mkdir -p MyPass.app/Contents/MacOS
+          cp dist/MyPass MyPass.app/Contents/MacOS/MyPass
+          chmod +x MyPass.app/Contents/MacOS/MyPass
+
+      # Remove the ASCII Art PNG step
+
+      - name: Install create-dmg
+        run: brew install create-dmg
+
+      - name: Create DMG Installer
+        run: |
+          mkdir -p dmg_source/Applications
+          mv MyPass.app dmg_source/
+          # Use a blank background (built-in: white)
+          create-dmg \
+            --volname "MyPass Installer" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --icon-size 100 \
+            --icon MyPass.app 150 200 \
+            --icon Applications 450 200 \
+            dmg_source/MyPass.dmg \
+            dmg_source/
+
+      - name: Copy DMG to root (so artifact path is simple)
+        run: cp dmg_source/MyPass.dmg MyPass.dmg
+
+      - name: Upload Mac DMG Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MyPass-mac
+          path: MyPass.dmg
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [build-windows, build-mac]
+    steps:
+      - name: Checkout (needed for git/tag commands)
+        uses: actions/checkout@v4
+
+      - name: Download Windows Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: MyPass-windows
+          path: ./artifacts/MyPass-windows
+
+      - name: Download Mac Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: MyPass-mac
+          path: ./artifacts/MyPass-mac
+
+      - name: List workspace for debugging
+        run: ls -la && ls -la artifacts && ls -la artifacts/MyPass-windows || true
+
+      - name: Move files to workspace root (expected by release action)
+        run: |
+          # downloaded artifacts placed under artifacts/<artifact-name>/
+          cp artifacts/MyPass-windows/MyPass.exe . || cp artifacts/MyPass-windows/MyPass . || true
+          cp artifacts/MyPass-mac/MyPass.dmg . || true
+          echo "Files in root now:"
+          ls -la
+
+      - name: Set Release Version (auto-increment)
+        id: version
+        run: |
+          latest_tag=$(git describe --tags --match "v[0-9]*.[0-9]*" --abbrev=0 2>/dev/null || true)
+          if [ -z "$latest_tag" ]; then
+            echo "VERSION=1.0" >> $GITHUB_ENV
+          else
+            major=$(echo "$latest_tag" | cut -d. -f1 | sed 's/^v//')
+            minor=$(echo "$latest_tag" | cut -d. -f2)
+            next_minor=$((minor + 1))
+            echo "VERSION=${major}.${next_minor}" >> $GITHUB_ENV
+          fi
+
+      - name: Create GitHub Release with binaries attached
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ env.VERSION }}
+          name: "Release v${{ env.VERSION }}"
+          draft: false
+          prerelease: false
+          files: |
+            MyPass.exe
+            MyPass.dmg
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
